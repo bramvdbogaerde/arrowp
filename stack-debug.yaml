@@ -5,20 +5,11 @@ extra-package-dbs: []
 extra-deps:
 - FPretty-1.1
 - RBTree-0.0.5
-- libgraph-1.12
 - haskell-src-exts-observe-0.1.0
 
 packages:
 - .
-- location: 
-    git: https://github.com/MaartenFaddegon/Hoed.git
-    commit: HEAD
-  extra-dep: true
-- location:
-    git: https://github.com/MaartenFaddegon/libgraph.git
-    commit: c7c17070a0e5f5931fcdaa60283533ae5276d9ff
-  extra-dep: true
 
-resolver: nightly-2017-09-02
+resolver: ghc-9.2.7
 ghc-options:
   "*": -Wall

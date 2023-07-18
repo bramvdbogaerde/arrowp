@@ -4,6 +4,6 @@ extra-deps: []
 packages:
 - .
 
-resolver: nightly-2017-09-02
+resolver: ghc-9.2.7
 ghc-options:
   "*": -Wall

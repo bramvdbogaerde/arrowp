@@ -3,7 +3,6 @@ module Main where
 
 import           Control.Arrow.Notation
 import           Data.List
-import           Debug.Hoed.Pure
 import           Language.Haskell.Exts
 import           System.Environment
 import           System.Exit
@@ -22,7 +21,7 @@ usage progName = unlines [
   ]
 
 main :: IO ()
-main = runO $ do
+main = do
   args <- getArgs
   progName <- getProgName
   (orig, inp, out) <- case args of

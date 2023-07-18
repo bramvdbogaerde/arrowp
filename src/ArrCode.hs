@@ -34,11 +34,11 @@ module ArrCode
 import           Data.Default
 import           Data.Set                     (Set)
 import qualified Data.Set                     as Set
-import           Debug.Hoed.Pure
 import           Language.Haskell.Exts.Syntax hiding (Tuple)
 import qualified Language.Haskell.Exts.Syntax as H
 import           NewCode
 import           Utils
+import           GHC.Generics hiding (S)
 
 data Arrow = Arrow
   { context  :: Tuple -- named input components used by the arrow
@@ -47,8 +47,6 @@ data Arrow = Arrow
   }
   deriving (Eq, Generic, Show)
 
-instance Observable Arrow
-
 loop :: Arrow -> Arrow
 loop f = applyOp loop_exp [f]
 
@@ -56,12 +54,12 @@ app :: Arrow
 app = arrowExp app_exp
 
 bind :: Set (Name ()) -> Arrow -> Arrow
-bind = observe "bind" $ \vars a -> a {context = context a `minusTuple` vars}
+bind = \vars a -> a {context = context a `minusTuple` vars}
 anon :: Int -> Arrow -> Arrow
 anon anonCount a = a {anonArgs = anonArgs a + anonCount}
 arr
   :: Int -> Tuple -> Pat S -> Exp S -> Arrow
-arr = observe "arr" $ \anons t p e ->
+arr = \anons t p e ->
   Arrow
   { code =
       if same p e
@@ -130,7 +128,7 @@ a1 ||| a2 =
   }
 
 compose :: Exp Code -> Exp Code -> Exp Code
-compose = observe "compose" compose'
+compose = compose'
 
 compose' :: Exp Code -> Exp Code -> Exp Code
 compose' ReturnA{} a = a
@@ -149,7 +147,7 @@ toHaskell :: Arrow -> Exp S
 toHaskell = rebracket1 . toHaskellCode . code
   where
     toHaskellCode :: Exp Code -> Exp S
-    toHaskellCode (ReturnA l) = const l <$> returnA_exp @ S
+    toHaskellCode (ReturnA l) = const l <$> returnA_exp @S
     toHaskellCode (Arr l n p bs e) =
       App l arr_exp (times n (Paren def . App def first_exp) body)
       where
@@ -188,7 +186,6 @@ toHaskell = rebracket1 . toHaskellCode . code
 
 newtype Tuple = Tuple (Set (Name ()))
   deriving (Eq,Generic,Semigroup,Monoid,Show)
-instance Observable Tuple
 
 isEmptyTuple :: Tuple -> Bool
 isEmptyTuple (Tuple t) = Set.null t
@@ -213,6 +210,6 @@ unionTuple (Tuple a) (Tuple b) = Tuple (a `Set.union` b)
 minusTuple :: Tuple -> Set (Name ()) -> Tuple
 Tuple t `minusTuple` vs = Tuple (t `Set.difference` vs)
 intersectTuple :: Tuple -> Set (Name ()) -> Tuple
-intersectTuple = observe "intersectTuple" intersectTuple'
+intersectTuple = intersectTuple'
 intersectTuple' :: Tuple -> Set (Name ()) -> Tuple
 Tuple t `intersectTuple'` vs = Tuple (t `Set.intersection` vs)

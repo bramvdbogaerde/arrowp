@@ -7,6 +7,7 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeApplications    #-}
 {-# OPTIONS_GHC -fno-warn-name-shadowing -Wno-orphans #-}
 module Utils
   ( S(..)
@@ -45,8 +46,6 @@ import           Data.List
 import           Data.Map                      (Map)
 import           Data.Set                      (Set)
 import qualified Data.Set                      as Set
-import           Debug.Hoed.Pure               hiding (Module)
-import           Debug.Hoed.Pure.TH
 import           Language.Haskell.Exts
 import qualified Language.Haskell.Exts.Util    as HSE
 #ifdef DEBUG
@@ -56,31 +55,28 @@ import           NewCode
 import           SrcLocs
 
 freeVars
-  :: ( Observable a
-     , HSE.FreeVars a
+  :: ( HSE.FreeVars a
      )
   => a -> Set (Name ())
-freeVars = observe "freeVars" HSE.freeVars
+freeVars = HSE.freeVars
 
 freeVarss
-  :: ( Observable a
-     , HSE.AllVars a
+  :: ( HSE.AllVars a
      )
   => a -> Set (Name ())
-freeVarss = observe "freeVarss" (HSE.free . HSE.allVars)
+freeVarss = (HSE.free . HSE.allVars)
 
 definedVars
-  :: ( Observable a
-     , HSE.AllVars a
+  :: ( HSE.AllVars a
      )
   => a -> Set (Name ())
-definedVars = observe "definedVars" (HSE.bound . HSE.allVars)
+definedVars = (HSE.bound . HSE.allVars)
 
 -- | Are a tuple pattern and an expression tuple equal ?
-same :: (Eq s, Observable(Exp s), Observable(Pat s)) => Pat s -> Exp s -> Bool
-same = observe "same" same'
+same :: (Eq s) => Pat s -> Exp s -> Bool
+same = same'
 
-same' :: (Eq s, Observable(Exp s), Observable(Pat s)) => Pat s -> Exp s -> Bool
+same' :: (Eq s) => Pat s -> Exp s -> Bool
 same' (PApp _ n1 []) (Con _ n2) = n1 == n2
 same' (PVar l n1) (Var _ n2) = UnQual l n1 == n2
 same' (PTuple _ Boxed []) y = same (PApp (ann y) (unit_con_name (ann y)) []) y
@@ -112,10 +108,8 @@ filterPat pred = transform go where
 hidePat :: Data a => Set (Name ()) -> Pat a -> Pat a
 hidePat vs = filterPat (not . (`Set.member` vs) . void)
 
-obs [d|
-  trimPat :: Exp S -> Pat S -> Pat S
-  trimPat vs = filterPat ((`Set.member` freeVars vs) . void)
-    |]
+trimPat :: Exp S -> Pat S -> Pat S
+trimPat vs = filterPat ((`Set.member` freeVars vs) . void)
 
 pair :: Exp code -> Exp code -> Exp code
 pair e1 e2 = Tuple (ann e1) Boxed [e1, e2]
@@ -163,57 +157,10 @@ irrPat p              = PIrrPat (ann p) p
 -- | Observing functions for algorithmic debugging
 
 observeSt
-  :: (Observable a, Observable b, Observable c, Observable s)
-  => String -> (a -> b -> State s c) -> a -> b -> State s c
-observeSt name f a b = StateT $ \s -> Identity $ observe name f' a b s
+   :: String -> (a -> b -> State s c) -> a -> b -> State s c
+observeSt name f a b = StateT $ \s -> Identity $ f' a b s
   where
     f' a b = runState (f a b)
-
-instance (Eq a, Show a) => Observable (Set a) where
-  constrain = constrainBase
-  observer = observeBase
-
-instance (Eq a, Eq k, Show a, Show k) => Observable (Map k a) where
-  constrain = constrainBase
-  observer = observeBase
-
--- Override some AST instances for comprehension
-instance {-# OVERLAPS #-} Observable (Exp Code) where
-  observer = observePretty
-instance {-# OVERLAPS #-} Observable (Exp S) where
-  observer = observePretty
-instance {-# OVERLAPS #-} Observable (Name S) where
-  observer = observePretty
-instance {-# OVERLAPS #-} Observable (QName S) where
-  observer = observePretty
-instance {-# OVERLAPS #-} Observable [Stmt S] where
-  observer lit cxt =
-    seq lit $ send (bracket $ intercalate ";" $ fmap prettyPrint lit) (return lit) cxt
-instance {-# OVERLAPS #-} Observable (Stmt S) where
-  observer = observePretty
-instance {-# OVERLAPS #-} Observable (Pat Code) where
-  observer = observePretty
-instance {-# OVERLAPS #-} Observable (Pat S) where
-  observer = observePretty
-instance {-# OVERLAPS #-} Observable (QOp S) where
-  observer = observePretty
-instance {-# OVERLAPS #-} Observable (Op S) where
-  observer = observePretty
-instance {-# OVERLAPS #-} Observable (Rhs S) where
-  observer = observePretty
-instance {-# OVERLAPS #-} Observable (Alt S) where
-  observer = observePretty
-instance {-# OVERLAPS #-} Observable (Set (Name S)) where
-  constrain = constrainBase
-  observer x cxt =
-    seq x $ send (between "[" "]"$ intercalate "," $ prettyPrint <$> map void (Set.toList x)) (return x) cxt
-instance {-# OVERLAPS #-} Observable (Set (Name ())) where
-  constrain = constrainBase
-  observer x cxt =
-    seq x $ send (between "[" "]"$ intercalate "," $ prettyPrint <$> map void (Set.toList x)) (return x) cxt
-
-observePretty lit cxt =
-  seq lit $ send (between "<" ">" $ prettyPrint lit) (return lit) cxt
 
 bracket :: [Char] -> [Char]
 between open  close s = open ++ s ++ close

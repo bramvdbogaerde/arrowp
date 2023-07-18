@@ -8,7 +8,6 @@ module NewCode where
 
 import           Data.Data
 import           Data.Default
-import           Debug.Hoed.Pure
 import           GHC.Generics                  (Generic)
 import           Language.Haskell.Exts.Syntax
 import           SrcLocs
@@ -27,8 +26,6 @@ data Code
 
 instance Default Code where
   def = Loc def
-
-instance Observable Code
 
 getLoc :: Code -> S
 getLoc (Loc s) = s
@@ -49,4 +46,3 @@ split _              = error "Compose: unreachable"
 data Binding = BindLet (Binds Code) | BindCase (Pat Code) (Exp Code)
   deriving (Eq, Data, Ord, Generic, Show)
 
-instance Observable Binding
